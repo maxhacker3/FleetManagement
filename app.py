@@ -4,12 +4,99 @@ from matplotlib import pyplot as plt
 import numpy as np
 from pulp import LpProblem, LpVariable, lpSum, LpMinimize, value
 import time
+import subprocess
+import os
+import csv
+
+
+from flask import Flask, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
+
+def get_scenario_running(id, allocation):
+    url = f"{BASE_URL_RUNNER}/Scenarios/get_scenario/{id}"
+    response = requests.get(url)
+    res = response.json()
+    c = res["customers"]
+    cars = res["vehicles"]
+    _,id, allocation = assign_customers_to_vehicles(res, allocation=allocation)
+    print(f"ID: {id}")
+    with open("id.csv", "w") as File:
+        writer = csv.writer(File)
+        writer.writerow(id)
+
+    return res, res['id']
+
+@app.route('/get_scenario/<int:id>', methods=['GET'])
+def create_app(id):
+    try:
+        
+        scenario_data, id = get_scenario_running(id)
+        return jsonify(scenario_data), 200
+    except requests.exceptions.RequestException as e:
+        # Handle errors when calling the external API
+        return jsonify({"error": "Failed to fetch scenario", "details": str(e)}), 500
+
+
+def main(idd):
+    id = idd  # Example: Initialize the ID in main
+    app = create_app(id)
+    app.run(port=8090)
+
+
+
+def start_react_server():
+    react_app_path = "./dashboardd/" 
+
+    try:
+        os.chdir(react_app_path)
+        process = subprocess.Popen(
+            ["npm", "start"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
+        print("Starting React server...")
+        time.sleep(5)
+
+        return process
+
+    except Exception as e:
+        print(f"Failed to start React server: {e}")
+        return None
 
 BASE_URL = "http://localhost:8080"
 BASE_URL_RUNNER = "http://localhost:8090"
 
-def assign_customers_to_vehicles(scenario):
-    
+
+
+
+
+def assign_customers_to_vehicles(scenario, allocation):
+    customers = scenario["customers"]
+    for vehicle in scenario["vehicles"]:
+        is_available = vehicle["isAvailable"]
+        print(f"Vehicle ID: {vehicle['id']}, Occupied: {not is_available}, Loc: ({vehicle['coordX']}, {vehicle['coordX']})")
+        if vehicle["isAvailable"]:
+            vehicle_id = vehicle["id"]
+
+            
+            for customer_id in allocation[vehicle_id]:  
+                customer = next((cust for cust in customers if cust["id"] == customer_id), None)
+
+                if customer and customer["awaitingService"]:  
+                    
+                    vehicle["customerId"] = customer_id
+                    vehicle["isAvailable"] = False
+
+                    # Update customer details
+                    customer["awaitingService"] = False
+                    break
+        else:
+            continue
+
     headers = {
         "accept": "application/json",
         "Content-Type": "application/json"
@@ -23,7 +110,8 @@ def assign_customers_to_vehicles(scenario):
         
         # Check if the response is successful
         if response.status_code == 200:
-            return response.json(), scenario["id"]
+            respon = response.json()
+            return respon, scenario["id"], allocation
         else:
             return {
                 "status": "Failed",
@@ -117,11 +205,10 @@ def get_poisson():
     plt.show()
 
 
-def LinearOptimization():
+def LinearOptimization(scenario):
     # Linear optimization programme
-    num_cars = int(input("Number of cars\n"))
-    num_cust = int(input("Number of Customers\n"))
-    scenario = set_scenario(number_cars = num_cars, number_cust = num_cust)
+    num_cars = len(scenario["vehicles"])
+    num_cust = len(scenario["customers"])
     df = pd.DataFrame(scenario["customers"])
     df_veh = pd.DataFrame(scenario["vehicles"])
     dff = df[["coordX", "coordY"]].to_numpy()
@@ -160,25 +247,35 @@ def LinearOptimization():
         prob += lpSum(x[i][j] for j in range(num_cust)) <= 1
 
     prob.solve()
-
+    d = {}
     for i in range(num_cars):
+        customer_costs = []
         for j in range(num_cust):
-            if value(x[i][j]) == 1:
-                print(f"Car {i+1} is assigned to Customer {j+1} with cost {cost[i][j]:.2f}")
+            if value(x[i][j]) == 1:  # If the customer is assigned to the car
+                customer_costs.append((df.loc[j, "id"], cost[i][j]))
+        customer_costs.sort(key=lambda x: x[1])
+        d[df_veh.loc[i, "id"]] = [cust_id for cust_id, _ in customer_costs]
+    
+                #print(f"Car {i+1} is assigned to Customer {j+1} with cost {cost[i][j]:.2f}")
     # Plot the best first options for the cars
-    for i in range(len(x)):  
-        indices = []
-        for j in range(len(x[i])):  
-            if value(x[i][j]) == 1:
-                indices.append(j)
-        res = np.array([cost[i][index] for index in indices])
-        argmin = np.argmin(res)
-        passenger_index = indices[argmin]
-        plt.plot([df_veh["coordX"][i], df["coordX"][passenger_index]],[df_veh["coordY"][i], df["coordY"][passenger_index]], "--")
+    plot = False
+    if plot:
+        for i in range(len(x)):  
+            indices = []
+            for j in range(len(x[i])):  
+                if value(x[i][j]) == 1:
+                    indices.append(j)
+            res = np.array([cost[i][index] for index in indices])
+            argmin = np.argmin(res)
+            passenger_index = indices[argmin]
+            plt.plot([df_veh["coordX"][i], df["coordX"][passenger_index]],[df_veh["coordY"][i], df["coordY"][passenger_index]], "--")
 
-    plt.legend()
-    plt.show()
-    return x, cost
+        plt.legend()
+        plt.show()
+
+    
+    
+    return d, x, cost
 
 
 
@@ -221,37 +318,45 @@ def launch(scenario_id):
     headers = {"accept": "application/json"}
     params = {
         "scenario_id" : scenario_id,
-        "speed" : 0.02
+        "speed" : 0.002
     }
     response = requests.post(
         f"{BASE_URL_RUNNER}/Runner/launch_scenario/{scenario_id}",
         headers=headers, params = params
     )
     if response.status_code == 200:
-        print("Bittteeee")
+        
         return response.json()
     else:
         print(f"Error: {response.status_code}, {response.text}")
-def get_scenario_running(id):
-    url = f"{BASE_URL_RUNNER}/Scenarios/get_scenario/{id}"
-    response = requests.get(url)
-    return response.json()
+
 
 if __name__ == "__main__":
     #LinearOptimization()
     
     scenario = get_scenarios()
-    
-    response, id = assign_customers_to_vehicles(scenario)
-    print(id)
+    allocation, x, loss = LinearOptimization(scenario)
+    response, id, allocation = assign_customers_to_vehicles(scenario, allocation= allocation)
     final_response = launch(id)
-    sc_id = final_response["scenario_id"]
+    #sc_id = final_response["scenario_id"]
     #print(final_response)
     for i in range(10):
-        print(get_scenario_running(sc_id))
-        time.sleep(5)
+        resp, id = get_scenario_running(id, allocation)
+        time.sleep(10)
 
-    
+    app.run(port = 8090)
+
+    react_process = start_react_server()
+
+    if react_process:
+        print("React server started successfully.")
+        # Do other tasks or wait for user to terminate the process
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("Terminating React server...")
+            react_process.terminate()
     #customers = scenario[0]["customers"]
     #vehicles = scenario[0]["vehicles"]
     

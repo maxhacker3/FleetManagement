@@ -1,0 +1,90 @@
+/* Grundlayout */
+.dashboard {
+  display: flex;
+  flex-direction: row; /* Kartenbereich und Parameter nebeneinander */
+  height: 100vh; /* Füllt die gesamte Höhe des Bildschirms */
+  overflow: hidden; /* Verhindert Scrollen */
+  background: linear-gradient(to right, #2c3e50, #4ca1af); /* Moderner Hintergrundverlauf */
+  color: #fff; /* Weißer Text für besseren Kontrast */
+}
+
+/* Kartenbereich (2/3 der Breite) */
+.map-container {
+  flex: 2;
+  height: 100vh; /* Füllt die gesamte Bildschirmhöhe */
+  margin: 0;
+  overflow: hidden;
+  border-right: 2px solid rgba(255, 255, 255, 0.2); /* Leichte Trennlinie */
+}
+
+/* Parameterbereich (1/3 der Breite) */
+.stats-container {
+  flex: 1;
+  background: linear-gradient(to bottom, #ffffff22, #ffffff11); /* Transparenter Farbverlauf */
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* Abstand zwischen Karten */
+  overflow-y: auto; /* Ermöglicht Scrollen bei vielen Karten */
+  border-left: 2px solid rgba(255, 255, 255, 0.2); /* Trennlinie */
+}
+
+/* Styling für Karten */
+.card {
+  background: rgba(255, 255, 255, 0.1); /* Transparente Karten für modernen Look */
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  transition: transform 0.3s, box-shadow 0.3s;
+  color: #fff;
+}
+
+.card:hover {
+  transform: translateY(-5px); /* Leichter Hover-Effekt */
+  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3);
+}
+
+h2 {
+  margin: 0 0 10px;
+  color: #f1f1f1; /* Leicht gedämpftes Weiß */
+  font-size: 1.5rem;
+}
+
+p {
+  margin: 5px 0;
+  color: #e1e1e1; /* Gedämpftes Weiß für Texte */
+  font-size: 1rem;
+}
+
+/* Entfernt alle Abstände und Padding vom Hauptlayout */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: 'Roboto', Arial, sans-serif; /* Modernere Schriftart */
+}
+
+/* Kartenüberschrift */
+.card h2 {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+/* Responsives Layout für kleine Bildschirme */
+@media (max-width: 768px) {
+  .dashboard {
+    flex-direction: column; /* Stapelt die Bereiche übereinander */
+  }
+
+  .map-container {
+    flex: none;
+    height: 50vh; /* Karte nimmt die obere Hälfte ein */
+  }
+
+  .stats-container {
+    flex: none;
+    height: 50vh; /* Parameterbereich nimmt die untere Hälfte ein */
+  }
+}
+
