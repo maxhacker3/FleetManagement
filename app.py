@@ -4,8 +4,33 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 BASE_URL = "http://localhost:8080"
+def get_scenario(scenario_id):
+    url = f"{BASE_URL}/scenarios/{scenario_id}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Error: {response.status_code}, {response.text}")
 
-def init_scenario(number_cars, number_cust):
+def set_scenario(number_cars, number_cust):
+    url = f"{BASE_URL}/scenario/create"
+    params = {
+        "numberOfVehicles": number_cars,
+        "numberOfCustomers": number_cust
+    }
+    headers = {"accept": "application/json"}
+    response = requests.post(url, headers=headers, params=params)
+    
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Error: {response.status_code}, {response.text}")
+
+def set_scenario2(scenario_id):
+    s = get_scenario(scenario_id)
+    number_cars = len(s[0]['vehicles'])
+    number_cust = len(s[0]['customers'])
+    ###Backend access
     url = f"{BASE_URL}/scenario/create"
     params = {
         "numberOfVehicles": number_cars,
@@ -76,6 +101,7 @@ def get_scenarios():
         return response.json()
     else:
         print(f"Error: {response.status_code}, {response.text}")
+
 
 def metadata(scenario_id):
     url = f"{BASE_URL}/scenario/{scenario_id}/metadata"
