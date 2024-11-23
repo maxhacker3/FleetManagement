@@ -52,7 +52,7 @@ if __name__ == "__main__":
         distances.append(np.sqrt((dff[i,0] - dfff[i,0])**2 + (dff[i,1] - dfff[i,1])**2))
     
     plt.hist(distances)
-        
+    #haa
     #plt.scatter(dfff[:,0], dfff[:,1], s = 3, color = "Orange")
     plt.show()
 
